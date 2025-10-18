@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 11
+names: ['Human', 'NoHuman', 'bottle-glass', 'bottle-plastic', 'cup-disposable', 'cup-handle', 'glass-mug', 'glass-normal', 'glass-wine', 'gym bottle', 'tin can']
+
+roboflow:
+  workspace: stuff-ifm4f
+  project: human-trash-qvgnh
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/stuff-ifm4f/human-trash-qvgnh/dataset/2
