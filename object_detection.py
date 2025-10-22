@@ -1,6 +1,8 @@
 from ultralytics import YOLO
 import cv2
 import os
+from gpiozero import Servo
+from time import sleep
 
 # Define recyclable and landfill categories
 RECYCLABLE_ITEMS = [
@@ -104,6 +106,7 @@ def run_webcam_detection(model_path='runs/detect/train33/weights/best.pt'):
     print("\nStarting waste detection...")
     print("Press 'q' to quit, 's' to save screenshot")
     print("-" * 60)
+
 
     try:
         while True:
