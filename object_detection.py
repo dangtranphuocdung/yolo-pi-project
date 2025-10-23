@@ -1,7 +1,8 @@
 from ultralytics import YOLO
 import cv2
 import os
-from gpiozero import Servo
+#from gpiozero import Servo, Button
+import gpiozero
 from time import sleep
 
 # Define recyclable and landfill categories
@@ -111,19 +112,40 @@ def run_webcam_detection(model_path='runs/detect/train33/weights/best.pt'):
     try:
         RECYCLABLE_SERVO_PIN = 17 #define GPIO
         LANDFILL_SERVO_PIN = 18 #define GPIO
+        GATE_SERVO_1 = 19
+        GATE_SERVO_2 = 20
+        GATE_SERVO_3 = 21
+        GATE_SERVO_4 = 22
+        START_BUTTON_PIN = 26
         
-        servo_left = Servo(RECYCLABLE_SERVO_PIN)  #call object in Servo class
-        servo_right = Servo(LANDFILL_SERVO_PIN)  #call object in Servo class
+        #call object in Servo class, need to test pulse_width_max and min
+        servo_left = Servo(RECYCLABLE_SERVO_PIN)  
+        servo_right = Servo(LANDFILL_SERVO_PIN)  
+        gate_servo_1 = Servo(GATE_SERVO_1)
+        gate_servo_2 = Servo(GATE_SERVO_2)
+        gate_servo_3 = Servo(GATE_SERVO_3)
+        gate_servo_4 = Servo(GATE_SERVO_4)
+        start_button = Button(START_BUTTON_PIN)
+
+        
 
         #Set up 2 servos to it minimum position (0 degree)
         servo_left.min() 
         servo_right.min()
+        gate_servo_1.mid()
+        gate_servo_2.mid()
+        gate_servo_3.mid()
+        gate_servo_4.mid()
+        
         sleep(1)
         servo_enabled = True
     except Exception as e:
         print(f"Error initializing GPIO: {e}")
         print("Servo control will be disabled")
         servo_enabled = False
+    #state machine:
+    # 0 = IDLE
+    current_state = 0
 
     try:
         while True:
@@ -213,17 +235,58 @@ def run_webcam_detection(model_path='runs/detect/train33/weights/best.pt'):
             )
 
             #logic servo
+            is_object_detected = (recyclable_count > 0) or (landfill_count > 0)
             if servo_enabled:
-                if recyclable_count > 0 and landfill_count == 0: #detect recyclable
-                    servo_left.max() #rotate left servo 90
-                    servo_right.min() #keep the right servo at 0
-                elif recyclable_count == 0 and landfill_count > 0: #detect landfill
-                    servo_left.min() #keep the left servo at 0
-                    servo_right.max() #rotate the right servo 90
-                elif recyclable_count == 0 and landfill_count == 0: #detect human
-                    servo_left.min() #keep the left servo at 0
-                    servo_right.min() #keep the right servo at 0
+                #state 0: wait to press the button, trigger the first gate
+                if current_state == 0:
+                    if start_button.is_pressed:
+                        current_state = 1  #turn to state 1
+                #state 1: open the gate from 90 to 0     
+                elif current_state == 1:
+                    #drop 1 object for the first time
+                    gate_servo_1.min()
+                    gate_servo_2.min()
+                    gate_servo_3.min()
+                    gate_servo_4.min()
+
+                    sleep(1)
+
+                    gate_servo_1.mid()
+                    gate_servo_2.mid()
+                    gate_servo_3.mid()
+                    gate_servo_4.mid()
+
+                    current_state = 2  #turn to state 2
+                #state 2: check if the camera detect the object or not
+                elif current_state == 2: 
+                    if is_object_detected:
+                        current_state = 3  #turn to state 3
+                #state 3: logic servo to sort out trash
+                elif current_state == 3:  
+                    if recyclable_count > 0 and landfill_count == 0: #detect recyclable
+                        servo_left.max() #rotate left servo 90
+                        servo_right.min() #keep the right servo at 0
+                        sleep(2)  #wait for object to fall
+                        servo_left.min()  #close the left servo
+                    elif recyclable_count == 0 and landfill_count > 0: #detect landfill
+                        servo_left.min() #keep the left servo at 0
+                        servo_right.max() #rotate the right servo 90
+                        sleep(2)  #wait for object to fall
+                        servo_right.min()  #close the right servo
+                    elif recyclable_count == 0 and landfill_count == 0: #detect human
+                        servo_left.min() #keep the left servo at 0
+                        servo_right.min() #keep the right servo at 0
+                    current_state = 4  #turn to state 4
+                #state 4: go back to 1 when the camerac is clear
+                elif current_state == 4:
+                    if recyclable_count == 0 and landfill_count == 0:  #the object is sorted out, camera is clear
+                        current_state = 1:
             
+            state_text = ["IDLE", "DROP", "WAIT_DETECT", "SORT", "WAIT_CLEAR"]
+            if current_state < len(state_text):
+                cv2.putText(frame, f"State: {state_text[current_state]}", (10, 150), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                                
 
 
             # Show frame
@@ -240,7 +303,7 @@ def run_webcam_detection(model_path='runs/detect/train33/weights/best.pt'):
                 print(f"Screenshot saved as {filename}")
 
     finally:
-        # Clean up
+        # Clean up objects and resources
         cap.release()
         cv2.destroyAllWindows()
         if servo_enabled:
