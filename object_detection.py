@@ -109,6 +109,23 @@ def run_webcam_detection(model_path='runs/detect/train33/weights/best.pt'):
 
 
     try:
+        RECYCLABLE_SERVO_PIN = 17 #define GPIO
+        LANDFILL_SERVO_PIN = 18 #define GPIO
+        
+        servo_left = Servo(RECYCLABLE_SERVO_PIN)  #call object in Servo class
+        servo_right = Servo(LANDFILL_SERVO_PIN)  #call object in Servo class
+
+        #Set up 2 servos to it minimum position (0 degree)
+        servo_left.min() 
+        servo_right.min()
+        sleep(1)
+        servo_enabled = True
+    except Exception as e:
+        print(f"Error initializing GPIO: {e}")
+        print("Servo control will be disabled")
+        servo_enabled = False
+
+    try:
         while True:
             ret, frame = cap.read()
             if not ret:
@@ -195,6 +212,20 @@ def run_webcam_detection(model_path='runs/detect/train33/weights/best.pt'):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2
             )
 
+            #logic servo
+            if servo_enabled:
+                if recyclable_count > 0 and landfill_count == 0: #detect recyclable
+                    servo_left.max() #rotate left servo 90
+                    servo_right.min() #keep the right servo at 0
+                elif recyclable_count == 0 and landfill_count > 0: #detect landfill
+                    servo_left.min() #keep the left servo at 0
+                    servo_right.max() #rotate the right servo 90
+                elif recyclable_count == 0 and landfill_count == 0: #detect human
+                    servo_left.min() #keep the left servo at 0
+                    servo_right.min() #keep the right servo at 0
+            
+
+
             # Show frame
             cv2.imshow('Waste Classification with Human Detection', frame)
 
@@ -212,6 +243,14 @@ def run_webcam_detection(model_path='runs/detect/train33/weights/best.pt'):
         # Clean up
         cap.release()
         cv2.destroyAllWindows()
+        if servo_enabled:
+            print("Detaching servo\nCleaning up GPIO")
+            servo_left.min()
+            servo_right.min()
+            sleep(1)
+            servo_left.detach()
+            servo_right.detach()
+            print("GPIO cleaned up")
         print("Webcam detection ended.")
 
 
