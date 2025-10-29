@@ -119,8 +119,8 @@ def run_webcam_detection(model_path='runs/detect/train33/weights/best.pt'):
         START_BUTTON_PIN = 26
         
         #call object in Servo class, need to test pulse_width_max and min
-        servo_left = Servo(RECYCLABLE_SERVO_PIN)  
-        servo_right = Servo(LANDFILL_SERVO_PIN)  
+        servo_recycle = Servo(RECYCLABLE_SERVO_PIN)  
+        servo_landfill = Servo(LANDFILL_SERVO_PIN)  
         gate_servo_1 = Servo(GATE_SERVO_1)
         gate_servo_2 = Servo(GATE_SERVO_2)
         gate_servo_3 = Servo(GATE_SERVO_3)
@@ -130,8 +130,8 @@ def run_webcam_detection(model_path='runs/detect/train33/weights/best.pt'):
         
 
         #Set up 2 servos to it minimum position (0 degree)
-        servo_left.min() 
-        servo_right.min()
+        servo_recycle.min() 
+        servo_landfill.min()
         gate_servo_1.mid()
         gate_servo_2.mid()
         gate_servo_3.mid()
@@ -250,7 +250,7 @@ def run_webcam_detection(model_path='runs/detect/train33/weights/best.pt'):
                     gate_servo_4.min()
 
                     sleep(1)
-
+                    #close the gate
                     gate_servo_1.mid()
                     gate_servo_2.mid()
                     gate_servo_3.mid()
@@ -261,26 +261,26 @@ def run_webcam_detection(model_path='runs/detect/train33/weights/best.pt'):
                 elif current_state == 2: 
                     if is_object_detected:
                         current_state = 3  #turn to state 3
-                #state 3: logic servo to sort out trash
+                #state 3: sort item
                 elif current_state == 3:  
                     if recyclable_count > 0 and landfill_count == 0: #detect recyclable
-                        servo_left.max() #rotate left servo 90
-                        servo_right.min() #keep the right servo at 0
+                        servo_recycle.max() #rotate recycle servo 90
+                        servo_landfill.min() #keep the landfill servo at 0
                         sleep(2)  #wait for object to fall
-                        servo_left.min()  #close the left servo
+                        servo_recycle.min()  #close the recycle servo
                     elif recyclable_count == 0 and landfill_count > 0: #detect landfill
-                        servo_left.min() #keep the left servo at 0
-                        servo_right.max() #rotate the right servo 90
+                        servo_recycle.min() #keep the recycle servo at 0
+                        servo_landfill.max() #rotate the landfill servo 90
                         sleep(2)  #wait for object to fall
-                        servo_right.min()  #close the right servo
+                        servo_landfill.min()  #close the landfill servo
                     elif recyclable_count == 0 and landfill_count == 0: #detect human
-                        servo_left.min() #keep the left servo at 0
-                        servo_right.min() #keep the right servo at 0
+                        servo_recycle.min() #keep the recycle servo at 0
+                        servo_landfill.min() #keep the landfill servo at 0
                     current_state = 4  #turn to state 4
                 #state 4: go back to 1 when the camerac is clear
                 elif current_state == 4:
                     if recyclable_count == 0 and landfill_count == 0:  #the object is sorted out, camera is clear
-                        current_state = 1:
+                        current_state = 1
             
             state_text = ["IDLE", "DROP", "WAIT_DETECT", "SORT", "WAIT_CLEAR"]
             if current_state < len(state_text):
@@ -308,11 +308,11 @@ def run_webcam_detection(model_path='runs/detect/train33/weights/best.pt'):
         cv2.destroyAllWindows()
         if servo_enabled:
             print("Detaching servo\nCleaning up GPIO")
-            servo_left.min()
-            servo_right.min()
+            servo_recycle.min()
+            servo_landfill.min()
             sleep(1)
-            servo_left.detach()
-            servo_right.detach()
+            servo_recycle.detach()
+            servo_landfill.detach()
             print("GPIO cleaned up")
         print("Webcam detection ended.")
 
